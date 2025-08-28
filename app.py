@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, send_from_directory
+from flask import Flask, request, render_template, send_from_directory, Response
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -10,16 +10,17 @@ import os
 
 app = Flask(__name__)
 
-def take_math_equation(equation_str):
+def take_math_equation(equation_str, has_y=False):
     """Преобразует строку с уравнением в лямбда-функцию"""
     try:
         # Безопасное преобразование математических выражений
         equation_str = equation_str.replace('^', '**')
         equation_str = equation_str.replace('X', 'x')
+        equation_str = equation_str.replace('Y', 'y')
         
         # Создаем безопасное лямбда-выражение
         allowed_names = {
-            'x': None,
+            'x': None, 'y': None,
             'np': np,
             'sin': np.sin, 'cos': np.cos, 'tan': np.tan,
             'sqrt': np.sqrt, 'log': np.log, 'exp': np.exp,
@@ -32,7 +33,10 @@ def take_math_equation(equation_str):
             if name not in allowed_names:
                 raise ValueError(f"Использование '{name}' не разрешено")
         
-        return lambda x: eval(equation_str, {'__builtins__': {}}, allowed_names | {'x': x})
+        if has_y:
+            return lambda x, y: eval(equation_str, {'__builtins__': {}}, allowed_names | {'x': x, 'y': y})
+        else:
+            return lambda x: eval(equation_str, {'__builtins__': {}}, allowed_names | {'x': x})
     
     except Exception as e:
         raise ValueError(f"Ошибка в уравнении: {e}")
@@ -49,28 +53,52 @@ def get_color_scheme(color_name):
     }
     return colors.get(color_name, '#1f77b4')
 
-def print_graph(func, color_scheme):
-    """Создает график функции и возвращает его как base64 строку"""
+def create_plot(func, color_scheme, has_y=False, format='png'):
+    """Создает график функции и возвращает его в указанном формате"""
     try:
         plt.figure(figsize=(8, 6), dpi=100, facecolor='white')
-        x = np.linspace(-10, 10, 1000)
-        y = func(x)
         
-        plt.plot(x, y, color=color_scheme, linewidth=3)
-        plt.axis('off')  # Убираем оси
-        plt.tight_layout(pad=0)
+        if has_y:
+            # Для функций с двумя переменными (x, y)
+            x = np.linspace(-10, 10, 100)
+            y = np.linspace(-10, 10, 100)
+            X, Y = np.meshgrid(x, y)
+            Z = func(X, Y)
+            
+            plt.contour(X, Y, Z, levels=20, colors=color_scheme)
+            plt.colorbar()
+            plt.title(f'z = f(x, y)')
+        else:
+            # Для функций с одной переменной (x)
+            x = np.linspace(-10, 10, 1000)
+            y = func(x)
+            
+            plt.plot(x, y, color=color_scheme, linewidth=2)
+            plt.title(f'y = f(x)')
         
-        # Сохраняем в буфер
+        plt.axhline(y=0, color='k', linestyle='-', alpha=0.3)
+        plt.axvline(x=0, color='k', linestyle='-', alpha=0.3)
+        plt.grid(True, alpha=0.3)
+        plt.xlabel('x')
+        plt.ylabel('y' if not has_y else 'z')
+        plt.tight_layout()
+        
+        # Сохраняем в буфер в указанном формате
         buf = BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0, 
+        plt.savefig(buf, format=format, bbox_inches='tight', 
                    facecolor='white', edgecolor='none')
         plt.close()
         buf.seek(0)
         
-        return base64.b64encode(buf.getvalue()).decode('utf-8')
+        return buf
     
     except Exception as e:
         raise ValueError(f"Ошибка построения графика: {e}")
+
+def print_graph(func, color_scheme, has_y=False):
+    """Создает график функции и возвращает его как base64 строку"""
+    buf = create_plot(func, color_scheme, has_y, 'png')
+    return base64.b64encode(buf.getvalue()).decode('utf-8')
 
 @app.route('/')
 def index():
@@ -80,20 +108,61 @@ def index():
 def plot():
     equation = request.form.get('equation', '')
     color_scheme_name = request.form.get('color', 'blue')
+    function_type = request.form.get('function_type', 'x')
     
     if not equation:
         return render_template('index.html', plot_data=None, error="Введите уравнение")
     
     try:
+        has_y = (function_type == 'xy')
         color_scheme = get_color_scheme(color_scheme_name)
-        func = take_math_equation(equation)
-        plot_data = print_graph(func, color_scheme)
-        return render_template('index.html', plot_data=plot_data, error=None, 
-                              equation=equation, color=color_scheme_name)
+        func = take_math_equation(equation, has_y)
+        plot_data = print_graph(func, color_scheme, has_y)
+        
+        return render_template('index.html', 
+                             plot_data=plot_data, 
+                             error=None, 
+                             equation=equation, 
+                             color=color_scheme_name,
+                             function_type=function_type)
     
     except Exception as e:
-        return render_template('index.html', plot_data=None, error=str(e), 
-                              equation=equation, color=color_scheme_name)
+        return render_template('index.html', 
+                             plot_data=None, 
+                             error=str(e), 
+                             equation=equation, 
+                             color=color_scheme_name,
+                             function_type=function_type)
+
+@app.route('/download', methods=['POST'])
+def download():
+    format = request.form.get('format')
+    equation = request.form.get('equation', '')
+    color_scheme_name = request.form.get('color', 'blue')
+    function_type = request.form.get('function_type', 'x')
+    
+    if not equation or not format:
+        return "Ошибка: уравнение или формат не указаны", 400
+    
+    try:
+        has_y = (function_type == 'xy')
+        color_scheme = get_color_scheme(color_scheme_name)
+        func = take_math_equation(equation, has_y)
+        
+        if format not in ['png', 'svg']:
+            return "Неверный формат", 400
+        
+        buf = create_plot(func, color_scheme, has_y, format)
+        
+        filename = f"graph.{format}"
+        return Response(
+            buf.getvalue(),
+            mimetype=f'image/{format}',
+            headers={'Content-Disposition': f'attachment;filename={filename}'}
+        )
+    
+    except Exception as e:
+        return f"Ошибка: {str(e)}", 400
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):

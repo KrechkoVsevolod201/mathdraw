@@ -5,26 +5,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>График функции</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
         .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         input, select, button { padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
         button { background: #007bff; color: white; border: none; cursor: pointer; }
         button:hover { background: #0056b3; }
         .error { color: red; margin: 10px 0; }
         .plot { margin: 20px 0; text-align: center; }
+        .download-buttons { margin: 15px 0; }
+        .download-buttons button { background: #28a745; margin-right: 10px; }
+        .download-buttons button:hover { background: #218838; }
+        .form-group { margin: 10px 0; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Построитель графиков функций</h1>
         
-        <form method="POST" action="/plot">
-            <div>
-                <label>Уравнение (например: x**2, sin(x), 2*x+1):</label><br>
-                <input type="text" name="equation" value="{{ equation or '' }}" placeholder="Введите уравнение" size="40">
+        <form method="POST" action="/plot" id="plotForm">
+            <div class="form-group">
+                <label>Тип функции:</label><br>
+                <select name="function_type" id="functionType">
+                    <option value="x" {% if function_type == 'x' %}selected{% endif %}>y = f(x)</option>
+                    <option value="xy" {% if function_type == 'xy' %}selected{% endif %}>z = f(x, y)</option>
+                </select>
             </div>
             
-            <div>
+            <div class="form-group">
+                <label id="equationLabel">Уравнение:</label><br>
+                <input type="text" name="equation" value="{{ equation or '' }}" placeholder="Введите уравнение" size="40" id="equationInput">
+                <div id="xExamples" class="{% if function_type == 'xy' %}hidden{% endif %}">
+                    <small>Примеры: x**2, sin(x), 2*x+1, sqrt(x)</small>
+                </div>
+                <div id="xyExamples" class="{% if function_type != 'xy' %}hidden{% endif %}">
+                    <small>Примеры: x**2 + y**2, sin(x)*cos(y), x*y, sqrt(x**2 + y**2)</small>
+                </div>
+            </div>
+            
+            <div class="form-group">
                 <label>Цвет графика:</label><br>
                 <select name="color">
                     <option value="blue" {% if color == 'blue' %}selected{% endif %}>Синий</option>
@@ -49,7 +68,47 @@
             <div class="plot">
                 <img src="data:image/png;base64,{{ plot_data }}" alt="График функции">
             </div>
+            
+            <div class="download-buttons">
+                <form method="POST" action="/download" style="display: inline;">
+                    <input type="hidden" name="equation" value="{{ equation }}">
+                    <input type="hidden" name="color" value="{{ color }}">
+                    <input type="hidden" name="function_type" value="{{ function_type }}">
+                    <input type="hidden" name="format" value="png">
+                    <button type="submit">Скачать PNG</button>
+                </form>
+                
+                <form method="POST" action="/download" style="display: inline;">
+                    <input type="hidden" name="equation" value="{{ equation }}">
+                    <input type="hidden" name="color" value="{{ color }}">
+                    <input type="hidden" name="function_type" value="{{ function_type }}">
+                    <input type="hidden" name="format" value="svg">
+                    <button type="submit">Скачать SVG</button>
+                </form>
+            </div>
         {% endif %}
     </div>
+
+    <script>
+        // Обновление подсказок в зависимости от типа функции
+        function updateFunctionType() {
+            const functionType = document.getElementById('functionType').value;
+            const xExamples = document.getElementById('xExamples');
+            const xyExamples = document.getElementById('xyExamples');
+            
+            if (functionType === 'x') {
+                xExamples.classList.remove('hidden');
+                xyExamples.classList.add('hidden');
+            } else {
+                xExamples.classList.add('hidden');
+                xyExamples.classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('functionType').addEventListener('change', updateFunctionType);
+        
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', updateFunctionType);
+    </script>
 </body>
 </html>
