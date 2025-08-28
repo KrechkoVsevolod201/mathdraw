@@ -7,20 +7,23 @@ import base64
 import re
 import numpy as np
 import os
+from matplotlib.colors import LinearSegmentedColormap
+import matplotlib.cm as cm
 
 app = Flask(__name__)
 
-def take_math_equation(equation_str, has_y=False):
+def take_math_equation(equation_str, variables_count=1):
     """Преобразует строку с уравнением в лямбда-функцию"""
     try:
         # Безопасное преобразование математических выражений
         equation_str = equation_str.replace('^', '**')
         equation_str = equation_str.replace('X', 'x')
         equation_str = equation_str.replace('Y', 'y')
+        equation_str = equation_str.replace('Z', 'z')
         
         # Создаем безопасное лямбда-выражение
         allowed_names = {
-            'x': None, 'y': None,
+            'x': None, 'y': None, 'z': None,
             'np': np,
             'sin': np.sin, 'cos': np.cos, 'tan': np.tan,
             'sqrt': np.sqrt, 'log': np.log, 'exp': np.exp,
@@ -33,7 +36,9 @@ def take_math_equation(equation_str, has_y=False):
             if name not in allowed_names:
                 raise ValueError(f"Использование '{name}' не разрешено")
         
-        if has_y:
+        if variables_count == 3:
+            return lambda x, y, z: eval(equation_str, {'__builtins__': {}}, allowed_names | {'x': x, 'y': y, 'z': z})
+        elif variables_count == 2:
             return lambda x, y: eval(equation_str, {'__builtins__': {}}, allowed_names | {'x': x, 'y': y})
         else:
             return lambda x: eval(equation_str, {'__builtins__': {}}, allowed_names | {'x': x})
@@ -41,8 +46,26 @@ def take_math_equation(equation_str, has_y=False):
     except Exception as e:
         raise ValueError(f"Ошибка в уравнении: {e}")
 
-def get_color_scheme(color_name):
-    """Возвращает цветовую схему по имени"""
+def get_colormap(color_name):
+    """Возвращает цветовую карту по имени"""
+    colormaps = {
+        'blue': cm.Blues,
+        'orange': cm.Oranges,
+        'green': cm.Greens,
+        'red': cm.Reds,
+        'purple': cm.Purples,
+        'black': cm.Greys,
+        'rainbow': cm.rainbow,
+        'hot': cm.hot,
+        'cool': cm.cool,
+        'viridis': cm.viridis,
+        'plasma': cm.plasma,
+        'magma': cm.magma
+    }
+    return colormaps.get(color_name, cm.Blues)
+
+def get_single_color(color_name):
+    """Возвращает одиночный цвет для линейных графиков"""
     colors = {
         'blue': '#1f77b4',
         'orange': '#ff7f0e',
@@ -53,40 +76,63 @@ def get_color_scheme(color_name):
     }
     return colors.get(color_name, '#1f77b4')
 
-def create_plot(func, color_scheme, has_y=False, format='png'):
+def create_plot(func, color_name, variables_count=1, format='png'):
     """Создает график функции и возвращает его в указанном формате"""
     try:
         plt.figure(figsize=(8, 6), dpi=100, facecolor='white')
         
-        if has_y:
+        if variables_count == 3:
+            # Для функций с тремя переменными (x, y, z)
+            x = np.linspace(-5, 5, 30)
+            y = np.linspace(-5, 5, 30)
+            z_val = np.linspace(-5, 5, 30)
+            X, Y, Z = np.meshgrid(x, y, z_val)
+            
+            # Вычисляем значение функции
+            W = func(X, Y, Z)
+            
+            # Визуализируем 2D срез при z=0
+            z_index = np.abs(z_val).argmin()  # Индекс ближайшего к нулю z
+            Z_slice = Z[:, :, z_index]
+            W_slice = W[:, :, z_index]
+            
+            colormap = get_colormap(color_name)
+            plt.contourf(X[:, :, z_index], Y[:, :, z_index], W_slice, levels=50, cmap=colormap)
+            
+        elif variables_count == 2:
             # Для функций с двумя переменными (x, y)
             x = np.linspace(-10, 10, 100)
             y = np.linspace(-10, 10, 100)
             X, Y = np.meshgrid(x, y)
             Z = func(X, Y)
             
-            plt.contour(X, Y, Z, levels=20, colors=color_scheme)
-            plt.colorbar()
-            plt.title(f'z = f(x, y)')
+            colormap = get_colormap(color_name)
+            plt.contourf(X, Y, Z, levels=50, cmap=colormap)
+                
         else:
             # Для функций с одной переменной (x)
             x = np.linspace(-10, 10, 1000)
             y = func(x)
             
-            plt.plot(x, y, color=color_scheme, linewidth=2)
-            plt.title(f'y = f(x)')
+            if color_name in ['rainbow', 'hot', 'cool', 'viridis', 'plasma', 'magma']:
+                # Для цветовых схем используем градиент
+                colormap = get_colormap(color_name)
+                for i in range(len(x)-1):
+                    color = colormap(i/len(x))
+                    plt.plot(x[i:i+2], y[i:i+2], color=color, linewidth=3)
+            else:
+                # Для одиночных цветов
+                color = get_single_color(color_name)
+                plt.plot(x, y, color=color, linewidth=3)
         
-        plt.axhline(y=0, color='k', linestyle='-', alpha=0.3)
-        plt.axvline(x=0, color='k', linestyle='-', alpha=0.3)
-        plt.grid(True, alpha=0.3)
-        plt.xlabel('x')
-        plt.ylabel('y' if not has_y else 'z')
-        plt.tight_layout()
+        # Убираем все оси и обозначения
+        plt.axis('off')
+        plt.tight_layout(pad=0)
         
         # Сохраняем в буфер в указанном формате
         buf = BytesIO()
-        plt.savefig(buf, format=format, bbox_inches='tight', 
-                   facecolor='white', edgecolor='none')
+        plt.savefig(buf, format=format, bbox_inches='tight', pad_inches=0,
+                   facecolor='white', edgecolor='none', transparent=True)
         plt.close()
         buf.seek(0)
         
@@ -95,9 +141,9 @@ def create_plot(func, color_scheme, has_y=False, format='png'):
     except Exception as e:
         raise ValueError(f"Ошибка построения графика: {e}")
 
-def print_graph(func, color_scheme, has_y=False):
+def print_graph(func, color_name, variables_count=1):
     """Создает график функции и возвращает его как base64 строку"""
-    buf = create_plot(func, color_scheme, has_y, 'png')
+    buf = create_plot(func, color_name, variables_count, 'png')
     return base64.b64encode(buf.getvalue()).decode('utf-8')
 
 @app.route('/')
@@ -107,23 +153,28 @@ def index():
 @app.route('/plot', methods=['POST'])
 def plot():
     equation = request.form.get('equation', '')
-    color_scheme_name = request.form.get('color', 'blue')
+    color_name = request.form.get('color', 'blue')
     function_type = request.form.get('function_type', 'x')
     
     if not equation:
         return render_template('index.html', plot_data=None, error="Введите уравнение")
     
     try:
-        has_y = (function_type == 'xy')
-        color_scheme = get_color_scheme(color_scheme_name)
-        func = take_math_equation(equation, has_y)
-        plot_data = print_graph(func, color_scheme, has_y)
+        if function_type == 'xyz':
+            variables_count = 3
+        elif function_type == 'xy':
+            variables_count = 2
+        else:
+            variables_count = 1
+            
+        func = take_math_equation(equation, variables_count)
+        plot_data = print_graph(func, color_name, variables_count)
         
         return render_template('index.html', 
                              plot_data=plot_data, 
                              error=None, 
                              equation=equation, 
-                             color=color_scheme_name,
+                             color=color_name,
                              function_type=function_type)
     
     except Exception as e:
@@ -131,28 +182,33 @@ def plot():
                              plot_data=None, 
                              error=str(e), 
                              equation=equation, 
-                             color=color_scheme_name,
+                             color=color_name,
                              function_type=function_type)
 
 @app.route('/download', methods=['POST'])
 def download():
     format = request.form.get('format')
     equation = request.form.get('equation', '')
-    color_scheme_name = request.form.get('color', 'blue')
+    color_name = request.form.get('color', 'blue')
     function_type = request.form.get('function_type', 'x')
     
     if not equation or not format:
         return "Ошибка: уравнение или формат не указаны", 400
     
     try:
-        has_y = (function_type == 'xy')
-        color_scheme = get_color_scheme(color_scheme_name)
-        func = take_math_equation(equation, has_y)
+        if function_type == 'xyz':
+            variables_count = 3
+        elif function_type == 'xy':
+            variables_count = 2
+        else:
+            variables_count = 1
+            
+        func = take_math_equation(equation, variables_count)
         
         if format not in ['png', 'svg']:
             return "Неверный формат", 400
         
-        buf = create_plot(func, color_scheme, has_y, format)
+        buf = create_plot(func, color_name, variables_count, format)
         
         filename = f"graph.{format}"
         return Response(

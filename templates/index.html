@@ -5,23 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>График функции</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
-        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        input, select, button { padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
-        button { background: #007bff; color: white; border: none; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        .error { color: red; margin: 10px 0; }
-        .plot { margin: 20px 0; text-align: center; }
-        .download-buttons { margin: 15px 0; }
-        .download-buttons button { background: #28a745; margin-right: 10px; }
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        input, select, button { padding: 10px; margin: 8px 0; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; }
+        input { width: 300px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0056b3; transform: translateY(-1px); }
+        .error { color: #dc3545; margin: 15px 0; padding: 10px; background: #f8d7da; border-radius: 5px; }
+        .plot { margin: 25px 0; text-align: center; background: white; padding: 15px; border-radius: 8px; }
+        .download-buttons { margin: 20px 0; display: flex; gap: 15px; justify-content: center; }
+        .download-buttons button { background: #28a745; padding: 12px 20px; }
         .download-buttons button:hover { background: #218838; }
-        .form-group { margin: 10px 0; }
+        .form-group { margin: 15px 0; }
         .hidden { display: none; }
+        small { color: #666; font-style: italic; display: block; margin-top: 5px; }
+        h1 { color: #333; text-align: center; margin-bottom: 25px; }
+        label { font-weight: bold; color: #555; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Построитель графиков функций</h1>
+        <h1>🎯 Построитель графиков функций</h1>
         
         <form method="POST" action="/plot" id="plotForm">
             <div class="form-group">
@@ -29,22 +33,26 @@
                 <select name="function_type" id="functionType">
                     <option value="x" {% if function_type == 'x' %}selected{% endif %}>y = f(x)</option>
                     <option value="xy" {% if function_type == 'xy' %}selected{% endif %}>z = f(x, y)</option>
+                    <option value="xyz" {% if function_type == 'xyz' %}selected{% endif %}>w = f(x, y, z)</option>
                 </select>
             </div>
             
             <div class="form-group">
                 <label id="equationLabel">Уравнение:</label><br>
-                <input type="text" name="equation" value="{{ equation or '' }}" placeholder="Введите уравнение" size="40" id="equationInput">
-                <div id="xExamples" class="{% if function_type == 'xy' %}hidden{% endif %}">
-                    <small>Примеры: x**2, sin(x), 2*x+1, sqrt(x)</small>
+                <input type="text" name="equation" value="{{ equation or '' }}" placeholder="Введите уравнение" id="equationInput">
+                <div id="xExamples" class="{% if function_type != 'x' %}hidden{% endif %}">
+                    <small>Примеры: x**2, sin(x), 2*x+1, exp(-x**2)</small>
                 </div>
                 <div id="xyExamples" class="{% if function_type != 'xy' %}hidden{% endif %}">
-                    <small>Примеры: x**2 + y**2, sin(x)*cos(y), x*y, sqrt(x**2 + y**2)</small>
+                    <small>Примеры: x**2 + y**2, sin(x)*cos(y), exp(-(x**2+y**2))</small>
+                </div>
+                <div id="xyzExamples" class="{% if function_type != 'xyz' %}hidden{% endif %}">
+                    <small>Примеры: x**2 + y**2 + z**2, sin(x)+cos(y)+tan(z)</small>
                 </div>
             </div>
             
             <div class="form-group">
-                <label>Цвет графика:</label><br>
+                <label>Цветовая схема:</label><br>
                 <select name="color">
                     <option value="blue" {% if color == 'blue' %}selected{% endif %}>Синий</option>
                     <option value="red" {% if color == 'red' %}selected{% endif %}>Красный</option>
@@ -52,38 +60,44 @@
                     <option value="orange" {% if color == 'orange' %}selected{% endif %}>Оранжевый</option>
                     <option value="purple" {% if color == 'purple' %}selected{% endif %}>Фиолетовый</option>
                     <option value="black" {% if color == 'black' %}selected{% endif %}>Черный</option>
+                    <option value="rainbow" {% if color == 'rainbow' %}selected{% endif %}>Радуга</option>
+                    <option value="hot" {% if color == 'hot' %}selected{% endif %}>Горячий</option>
+                    <option value="cool" {% if color == 'cool' %}selected{% endif %}>Холодный</option>
+                    <option value="viridis" {% if color == 'viridis' %}selected{% endif %}>Viridis</option>
+                    <option value="plasma" {% if color == 'plasma' %}selected{% endif %}>Plasma</option>
+                    <option value="magma" {% if color == 'magma' %}selected{% endif %}>Magma</option>
                 </select>
             </div>
             
-            <button type="submit">Построить график</button>
+            <button type="submit">📈 Построить график</button>
         </form>
 
         {% if error %}
             <div class="error">
-                <strong>Ошибка:</strong> {{ error }}
+                <strong>⚠️ Ошибка:</strong> {{ error }}
             </div>
         {% endif %}
 
         {% if plot_data %}
             <div class="plot">
-                <img src="data:image/png;base64,{{ plot_data }}" alt="График функции">
+                <img src="data:image/png;base64,{{ plot_data }}" alt="График функции" style="max-width: 100%; height: auto;">
             </div>
             
             <div class="download-buttons">
-                <form method="POST" action="/download" style="display: inline;">
+                <form method="POST" action="/download">
                     <input type="hidden" name="equation" value="{{ equation }}">
                     <input type="hidden" name="color" value="{{ color }}">
                     <input type="hidden" name="function_type" value="{{ function_type }}">
                     <input type="hidden" name="format" value="png">
-                    <button type="submit">Скачать PNG</button>
+                    <button type="submit">💾 Скачать PNG</button>
                 </form>
                 
-                <form method="POST" action="/download" style="display: inline;">
+                <form method="POST" action="/download">
                     <input type="hidden" name="equation" value="{{ equation }}">
                     <input type="hidden" name="color" value="{{ color }}">
                     <input type="hidden" name="function_type" value="{{ function_type }}">
                     <input type="hidden" name="format" value="svg">
-                    <button type="submit">Скачать SVG</button>
+                    <button type="submit">💾 Скачать SVG</button>
                 </form>
             </div>
         {% endif %}
@@ -95,13 +109,20 @@
             const functionType = document.getElementById('functionType').value;
             const xExamples = document.getElementById('xExamples');
             const xyExamples = document.getElementById('xyExamples');
+            const xyzExamples = document.getElementById('xyzExamples');
             
+            // Скрываем все примеры
+            xExamples.classList.add('hidden');
+            xyExamples.classList.add('hidden');
+            xyzExamples.classList.add('hidden');
+            
+            // Показываем нужные примеры
             if (functionType === 'x') {
                 xExamples.classList.remove('hidden');
-                xyExamples.classList.add('hidden');
-            } else {
-                xExamples.classList.add('hidden');
+            } else if (functionType === 'xy') {
                 xyExamples.classList.remove('hidden');
+            } else if (functionType === 'xyz') {
+                xyzExamples.classList.remove('hidden');
             }
         }
 
