@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>График функции</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        input, select, button { padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .error { color: red; margin: 10px 0; }
+        .plot { margin: 20px 0; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Построитель графиков функций</h1>
+        
+        <form method="POST" action="/plot">
+            <div>
+                <label>Уравнение (например: x**2, sin(x), 2*x+1):</label><br>
+                <input type="text" name="equation" value="{{ equation or '' }}" placeholder="Введите уравнение" size="40">
+            </div>
+            
+            <div>
+                <label>Цвет графика:</label><br>
+                <select name="color">
+                    <option value="blue" {% if color == 'blue' %}selected{% endif %}>Синий</option>
+                    <option value="red" {% if color == 'red' %}selected{% endif %}>Красный</option>
+                    <option value="green" {% if color == 'green' %}selected{% endif %}>Зеленый</option>
+                    <option value="orange" {% if color == 'orange' %}selected{% endif %}>Оранжевый</option>
+                    <option value="purple" {% if color == 'purple' %}selected{% endif %}>Фиолетовый</option>
+                    <option value="black" {% if color == 'black' %}selected{% endif %}>Черный</option>
+                </select>
+            </div>
+            
+            <button type="submit">Построить график</button>
+        </form>
+
+        {% if error %}
+            <div class="error">
+                <strong>Ошибка:</strong> {{ error }}
+            </div>
+        {% endif %}
+
+        {% if plot_data %}
+            <div class="plot">
+                <img src="data:image/png;base64,{{ plot_data }}" alt="График функции">
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
