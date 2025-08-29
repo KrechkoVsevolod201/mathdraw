@@ -1,7 +1,7 @@
 
 ## Как использовать:
 
-1. **Простой способ**: Запустите `python install.py`
+1. **Простой способ**: Запустите `python libinstaller.py`
 2. **Для Linux/macOS**: Дайте права и запустите `./install.sh`
 3. **Для Windows**: Запустите `install.bat`
 
