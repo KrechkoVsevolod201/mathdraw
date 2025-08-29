@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>График функции</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        body { font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
         .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         input, select, button { padding: 10px; margin: 8px 0; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; }
         input { width: 300px; }
@@ -21,52 +21,87 @@
         small { color: #666; font-style: italic; display: block; margin-top: 5px; }
         h1 { color: #333; text-align: center; margin-bottom: 25px; }
         label { font-weight: bold; color: #555; }
+        .form-row { display: flex; gap: 20px; flex-wrap: wrap; }
+        .form-column { flex: 1; min-width: 250px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎯 Построитель графиков функций</h1>
+        <h1>🎯 Расширенный построитель графиков функций</h1>
         
         <form method="POST" action="/plot" id="plotForm">
-            <div class="form-group">
-                <label>Тип функции:</label><br>
-                <select name="function_type" id="functionType">
-                    <option value="x" {% if function_type == 'x' %}selected{% endif %}>y = f(x)</option>
-                    <option value="xy" {% if function_type == 'xy' %}selected{% endif %}>z = f(x, y)</option>
-                    <option value="xyz" {% if function_type == 'xyz' %}selected{% endif %}>w = f(x, y, z)</option>
-                </select>
+            <div class="form-row">
+                <div class="form-column">
+                    <div class="form-group">
+                        <label>Тип функции:</label><br>
+                        <select name="function_type" id="functionType">
+                            <option value="x" {% if function_type == 'x' %}selected{% endif %}>y = f(x)</option>
+                            <option value="xy" {% if function_type == 'xy' %}selected{% endif %}>z = f(x, y)</option>
+                            <option value="xyz" {% if function_type == 'xyz' %}selected{% endif %}>w = f(x, y, z)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Разрешение:</label><br>
+                        <select name="resolution">
+                            <option value="small" {% if resolution == 'small' %}selected{% endif %}>Маленькое (6x4)</option>
+                            <option value="medium" {% if resolution == 'medium' %}selected{% endif %}>Среднее (8x6)</option>
+                            <option value="large" {% if resolution == 'large' %}selected{% endif %}>Большое (12x8)</option>
+                            <option value="4k" {% if resolution == '4k' %}selected{% endif %}>4K (16x9)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-column">
+                    <div class="form-group">
+                        <label>Преобразование:</label><br>
+                        <select name="transform">
+                            <option value="none" {% if transform == 'none' %}selected{% endif %}>Без преобразования</option>
+                            <option value="abs" {% if transform == 'abs' %}selected{% endif %}>Абсолютное значение (abs)</option>
+                            <option value="angle" {% if transform == 'angle' %}selected{% endif %}>Фаза (angle)</option>
+                            <option value="real" {% if transform == 'real' %}selected{% endif %}>Действительная часть (real)</option>
+                            <option value="imag" {% if transform == 'imag' %}selected{% endif %}>Мнимая часть (imag)</option>
+                            <option value="log" {% if transform == 'log' %}selected{% endif %}>Логарифм (log)</option>
+                            <option value="log10" {% if transform == 'log10' %}selected{% endif %}>Логарифм по base 10 (log10)</option>
+                            <option value="fft" {% if transform == 'fft' %}selected{% endif %}>Фурье-спектр (FFT)</option>
+                            <option value="fft_phase" {% if transform == 'fft_phase' %}selected{% endif %}>Фаза Фурье (FFT phase)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Цветовая схема:</label><br>
+                        <select name="color">
+                            <option value="blue" {% if color == 'blue' %}selected{% endif %}>Синий</option>
+                            <option value="red" {% if color == 'red' %}selected{% endif %}>Красный</option>
+                            <option value="green" {% if color == 'green' %}selected{% endif %}>Зеленый</option>
+                            <option value="orange" {% if color == 'orange' %}selected{% endif %}>Оранжевый</option>
+                            <option value="purple" {% if color == 'purple' %}selected{% endif %}>Фиолетовый</option>
+                            <option value="black" {% if color == 'black' %}selected{% endif %}>Черный</option>
+                            <option value="rainbow" {% if color == 'rainbow' %}selected{% endif %}>Радуга</option>
+                            <option value="hot" {% if color == 'hot' %}selected{% endif %}>Горячий</option>
+                            <option value="cool" {% if color == 'cool' %}selected{% endif %}>Холодный</option>
+                            <option value="viridis" {% if color == 'viridis' %}selected{% endif %}>Viridis</option>
+                            <option value="plasma" {% if color == 'plasma' %}selected{% endif %}>Plasma</option>
+                            <option value="magma" {% if color == 'magma' %}selected{% endif %}>Magma</option>
+                            <option value="jet" {% if color == 'jet' %}selected{% endif %}>Jet</option>
+                            <option value="inferno" {% if color == 'inferno' %}selected{% endif %}>Inferno</option>
+                        </select>
+                    </div>
+                </div>
             </div>
             
             <div class="form-group">
                 <label id="equationLabel">Уравнение:</label><br>
                 <input type="text" name="equation" value="{{ equation or '' }}" placeholder="Введите уравнение" id="equationInput">
                 <div id="xExamples" class="{% if function_type != 'x' %}hidden{% endif %}">
-                    <small>Примеры: x**2, sin(x), 2*x+1, exp(-x**2)</small>
+                    <small>Примеры: x**2, sin(x), 2*x+1, exp(-x**2), fft(sin(x)), abs(fft(sin(x)))</small>
                 </div>
                 <div id="xyExamples" class="{% if function_type != 'xy' %}hidden{% endif %}">
-                    <small>Примеры: x**2 + y**2, sin(x)*cos(y), exp(-(x**2+y**2))</small>
+                    <small>Примеры: x**2 + y**2, sin(x)*cos(y), exp(-(x**2+y**2)), fft2(sin(x)*cos(y))</small>
                 </div>
                 <div id="xyzExamples" class="{% if function_type != 'xyz' %}hidden{% endif %}">
                     <small>Примеры: x**2 + y**2 + z**2, sin(x)+cos(y)+tan(z)</small>
                 </div>
-            </div>
-            
-            <div class="form-group">
-                <label>Цветовая схема:</label><br>
-                <select name="color">
-                    <option value="blue" {% if color == 'blue' %}selected{% endif %}>Синий</option>
-                    <option value="red" {% if color == 'red' %}selected{% endif %}>Красный</option>
-                    <option value="green" {% if color == 'green' %}selected{% endif %}>Зеленый</option>
-                    <option value="orange" {% if color == 'orange' %}selected{% endif %}>Оранжевый</option>
-                    <option value="purple" {% if color == 'purple' %}selected{% endif %}>Фиолетовый</option>
-                    <option value="black" {% if color == 'black' %}selected{% endif %}>Черный</option>
-                    <option value="rainbow" {% if color == 'rainbow' %}selected{% endif %}>Радуга</option>
-                    <option value="hot" {% if color == 'hot' %}selected{% endif %}>Горячий</option>
-                    <option value="cool" {% if color == 'cool' %}selected{% endif %}>Холодный</option>
-                    <option value="viridis" {% if color == 'viridis' %}selected{% endif %}>Viridis</option>
-                    <option value="plasma" {% if color == 'plasma' %}selected{% endif %}>Plasma</option>
-                    <option value="magma" {% if color == 'magma' %}selected{% endif %}>Magma</option>
-                </select>
             </div>
             
             <button type="submit">📈 Построить график</button>
@@ -88,6 +123,8 @@
                     <input type="hidden" name="equation" value="{{ equation }}">
                     <input type="hidden" name="color" value="{{ color }}">
                     <input type="hidden" name="function_type" value="{{ function_type }}">
+                    <input type="hidden" name="transform" value="{{ transform }}">
+                    <input type="hidden" name="resolution" value="{{ resolution }}">
                     <input type="hidden" name="format" value="png">
                     <button type="submit">💾 Скачать PNG</button>
                 </form>
@@ -96,6 +133,8 @@
                     <input type="hidden" name="equation" value="{{ equation }}">
                     <input type="hidden" name="color" value="{{ color }}">
                     <input type="hidden" name="function_type" value="{{ function_type }}">
+                    <input type="hidden" name="transform" value="{{ transform }}">
+                    <input type="hidden" name="resolution" value="{{ resolution }}">
                     <input type="hidden" name="format" value="svg">
                     <button type="submit">💾 Скачать SVG</button>
                 </form>
